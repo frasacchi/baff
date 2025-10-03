@@ -191,8 +191,55 @@ classdef Wing < baff.Beam
             obj = baff.Wing(aeroStations);
             obj.EtaLength = length;
             % add beam station Info
+            obj.Stations = station + linspace(0,opts.etaBeamMax,opts.NStations);
+        end
+
+        function obj = SweptWing(span,barHeight,barWidth,Material,Chord,BeamLoc,opts)
+            arguments
+                span
+                barHeight
+                barWidth
+                Material
+                Chord
+                BeamLoc
+                opts.Sweep = 0
+                opts.NAeroStations = 2
+                opts.NStations = 2
+                opts.etaAeroMin = 0
+                opts.etaAeroMax = 1
+                opts.etaBeamMax = 1
+                opts.LiftCurveSlope = 2*pi;
+            end
+            N = length(span);
+            etas = [0,span/sum(span)];
+            delta = etas(2:end) - etas(1:end-1);
+
+            %get ce points
+            ce = zeros(3,N);
+            for i = 1:N
+                vec = [delta(i)*span;...
+                    -tand(opts.Sweep(i))*delta(i)*span;...
+                    0];
+                ce(:,i+1) = ce(:,i) + vec;
+            end
+            
+            % get spar loc 
+            locs = ce;
+            vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+
+            % create root stations
+            for i=1:N+1
+            stations(i) = baff.station.Beam.Bar(etas(i),barHeight,barWidth,Mat=Material,EtaDir=vecs);
+            aeroStations(i) = baff.station.Aero(etas(i),Chord,BeamLoc,LiftCurveSlope=opts.LiftCurveSlope);
+            end
+
+            %gen wing
+            obj = baff.Wing(aeroStations);
+            obj.EtaLength = span;
             obj.Stations = stations;
         end
+
+
         function wing = FromLETESweep(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
             %FromLETESweep creates a wing from leading and trailing edge sweep angles
             %Args:
@@ -254,13 +301,81 @@ classdef Wing < baff.Beam
             % get chords
             chords = vecnorm(te-le);
             %gen aero stations
-            aeroStations = baff.station.Aero(etas,chords(1),BeamLoc);
-            aeroStations.Chord = chords;
-            aeroStations.ThicknessRatio = opts.ThicknessRatio;
-            aeroStations.Twist = opts.Twist;
-            aeroStations.Airfoil = baff.Airfoil.NACA(0,0);
+            aeroStation = baff.station.Aero(0,chords(1),BeamLoc);
+            aeroStations = aeroStation + etas;
+            for i = 1:length(aeroStations)
+                aeroStations(i).Chord = chords(i);
+                aeroStations(i).ThicknessRatio = opts.ThicknessRatio(i);
+                aeroStations(i).Twist = opts.Twist(i);
+                aeroStations(i).Airfoil = baff.Airfoil.NACA(0,0);
+            end
             %make wing
-            wing = baff.Wing(aeroStations,BeamStations=beamStations,EtaLength=span);
+            wing = baff.Wing(aeroStations,"BeamStations",beamStations,"EtaLength",span);
+        end
+
+        function wing = FromLETESweep_Shell(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
+            arguments
+                span
+                RootChord
+                etas
+                LESweep
+                TESweep
+                BeamLoc
+                Material
+                opts.Dihedral = 0;
+                opts.ThicknessRatio = 0.12;
+                opts.Twist = 0;
+            end
+            N = length(etas);
+            delta = etas(2:end) - etas(1:end-1);
+            if length(opts.Dihedral)==1
+                opts.Dihedral = opts.Dihedral*ones(1,N);
+            end
+            if length(opts.Twist)==1
+                opts.Twist = opts.Twist*ones(1,N);
+            end
+            if length(opts.ThicknessRatio)==1
+                opts.ThicknessRatio = opts.ThicknessRatio*ones(1,N);
+            end
+            % make beam stations
+            station = baff.station.ShellStation.ShellStation([0,1],Origin=BeamLoc);
+            shellStations = station + etas;
+            %get le points
+            le = zeros(3,N);
+            for i = 1:N-1
+                vec = [delta(i)*span;...
+                    -tand(LESweep(i))*delta(i)*span;...
+                    tand(opts.Dihedral(i))*delta(i)*span];
+                le(:,i+1) = le(:,i) + vec;
+            end
+            %get te points
+            te = zeros(3,N);
+            te(:,1) = [0;-RootChord;0];
+            for i = 1:N-1
+                vec = [delta(i)*span;...
+                    -tand(TESweep(i))*delta(i)*span;...
+                    tand(opts.Dihedral(i))*delta(i)*span];
+                te(:,i+1) = te(:,i) + vec;
+            end
+            % get spar loc
+            locs = le + (te-le).*BeamLoc;
+            vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+            for i=1:N-1
+                shellStations(i).EtaDir = vecs(:,i);
+            end
+            % get chords
+            chords = vecnorm(te-le);
+            %gen aero stations
+            aeroStation = baff.station.Aero(0,chords(1),BeamLoc);
+            aeroStations = aeroStation + etas;
+            for i = 1:length(aeroStations)
+                aeroStations(i).Chord = chords(i);
+                aeroStations(i).ThicknessRatio = opts.ThicknessRatio(i);
+                aeroStations(i).Twist = opts.Twist(i);
+                aeroStations(i).Airfoil = baff.Airfoil.NACA(0,0);
+            end
+            %make wing
+            wing = baff.Wing(aeroStations,"ShellStations",shellStations,"EtaLength",span);
         end
     end
 end
