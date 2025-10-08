@@ -86,7 +86,7 @@ classdef ShellStation < baff.station.Base
                 opts.Origin (3,1) double = [0,0,0];
                 opts.A (3,3) double = eye(3);
             end
-            p = plot3(opts.Origin(1,:),opts.Origin(2,:),opts.Origin(3,:),'square');
+            p = plot3(opts.Origin(1,:),opts.Origin(2,:),opts.Origin(3,:),'square-');
             p.MarkerFaceColor = 'k';
             p.Color = 'k';
             p.Tag = 'Shell';
