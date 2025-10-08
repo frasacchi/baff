@@ -1,7 +1,10 @@
-classdef Wing < baff.Beam
+classdef Wing < baff.Element
+    %-- TODO - write Base for baff at Beam level to replace baff.Beam
+
     %WING class to build Baff wing models
     properties
-        AeroStations (1,:) baff.station.Aero; % Aero stations for the wing
+        Stations (1,1)
+        AeroStations (1,:) baff.station.Aero; % Aero stations for the wing -- should be a (1,1)
         ControlSurfaces (1,:) baff.ControlSurface; % Control surfaces for the wing
     end
 
@@ -107,17 +110,27 @@ classdef Wing < baff.Beam
             %WING Construct an instance of this class
             arguments
                 aeroStations
-                opts.BeamStations = [baff.station.Beam(0),baff.station.Beam(1)];
+                opts.BeamStations = baff.station.Beam([0,1]);
+                opts.ShellStations = [];%baff.station.ShellStation.ShellStation([0,1]);
                 opts.EtaLength = 1;
                 CompOpts.eta = 0
                 CompOpts.Offset
                 CompOpts.Name = "Wing"
             end
+
             CompStruct = namedargs2cell(CompOpts);
-            obj = obj@baff.Beam(CompStruct{:});
-            obj.Stations = opts.BeamStations;
+
+            %-- TODO - write Base for baff at beam level
+            obj = obj@baff.Element(CompStruct{:});
+
+            if ~isempty(opts.ShellStations)
+                obj.Stations = opts.ShellStations;
+            else
+                obj.Stations = opts.BeamStations;
+            end
             obj.AeroStations = aeroStations;
             obj.EtaLength = opts.EtaLength;
+
         end
         function X = GetWingPos(obj,eta,pChord)
             %GetWingPos returns the position of the wing at a given eta and pChord
@@ -152,7 +165,7 @@ classdef Wing < baff.Beam
     methods(Static)
         obj = FromBaff(filepath,loc);
         TemplateHdf5(filepath,loc);
-
+        
         function obj = UniformWing(length,barHeight,barWidth,Material,Chord,BeamLoc,opts)
             % Static function to create a uniform wing
             %Args:
@@ -191,7 +204,7 @@ classdef Wing < baff.Beam
             obj = baff.Wing(aeroStations);
             obj.EtaLength = length;
             % add beam station Info
-            obj.Stations = station + linspace(0,opts.etaBeamMax,opts.NStations);
+            obj.Stations = stations;
         end
 
         function obj = SweptWing(span,barHeight,barWidth,Material,Chord,BeamLoc,opts)
@@ -301,16 +314,13 @@ classdef Wing < baff.Beam
             % get chords
             chords = vecnorm(te-le);
             %gen aero stations
-            aeroStation = baff.station.Aero(0,chords(1),BeamLoc);
-            aeroStations = aeroStation + etas;
-            for i = 1:length(aeroStations)
-                aeroStations(i).Chord = chords(i);
-                aeroStations(i).ThicknessRatio = opts.ThicknessRatio(i);
-                aeroStations(i).Twist = opts.Twist(i);
-                aeroStations(i).Airfoil = baff.Airfoil.NACA(0,0);
-            end
+            aeroStations = baff.station.Aero(etas,chords(1),BeamLoc);
+            aeroStations.Chord = chords;
+            aeroStations.ThicknessRatio = opts.ThicknessRatio;
+            aeroStations.Twist = opts.Twist;
+            aeroStations.Airfoil = baff.Airfoil.NACA(0,0);
             %make wing
-            wing = baff.Wing(aeroStations,"BeamStations",beamStations,"EtaLength",span);
+            wing = baff.Wing(aeroStations,BeamStations=beamStations,EtaLength=span);
         end
 
         function wing = FromLETESweep_Shell(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
@@ -328,18 +338,18 @@ classdef Wing < baff.Beam
             end
             N = length(etas);
             delta = etas(2:end) - etas(1:end-1);
-            if length(opts.Dihedral)==1
+            if isscalar(opts.Dihedral)
                 opts.Dihedral = opts.Dihedral*ones(1,N);
             end
-            if length(opts.Twist)==1
+            if isscalar(opts.Twist)
                 opts.Twist = opts.Twist*ones(1,N);
             end
-            if length(opts.ThicknessRatio)==1
+            if isscalar(opts.ThicknessRatio)
                 opts.ThicknessRatio = opts.ThicknessRatio*ones(1,N);
             end
             % make beam stations
-            station = baff.station.ShellStation.ShellStation([0,1],Origin=BeamLoc);
-            shellStations = station + etas;
+            shellStations = baff.station.ShellStation.ShellStation(etas,Mat=Material);
+            % shellStations = station + etas;
             %get le points
             le = zeros(3,N);
             for i = 1:N-1
@@ -359,21 +369,21 @@ classdef Wing < baff.Beam
             end
             % get spar loc
             locs = le + (te-le).*BeamLoc;
-            vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
-            for i=1:N-1
-                shellStations(i).EtaDir = vecs(:,i);
-            end
+            % vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+            % for i=1:N-1
+            %     shellStations(i).EtaDir = vecs(:,i);
+            % end
+            shellStations.EtaDir(:,1:end-1) = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+
             % get chords
             chords = vecnorm(te-le);
             %gen aero stations
-            aeroStation = baff.station.Aero(0,chords(1),BeamLoc);
-            aeroStations = aeroStation + etas;
-            for i = 1:length(aeroStations)
-                aeroStations(i).Chord = chords(i);
-                aeroStations(i).ThicknessRatio = opts.ThicknessRatio(i);
-                aeroStations(i).Twist = opts.Twist(i);
-                aeroStations(i).Airfoil = baff.Airfoil.NACA(0,0);
-            end
+            aeroStations = baff.station.Aero(etas,chords(1),BeamLoc);
+            aeroStations.Chord = chords;
+            aeroStations.ThicknessRatio = opts.ThicknessRatio;
+            aeroStations.Twist = opts.Twist;
+            aeroStations.Airfoil = baff.Airfoil.NACA(0,0);
+
             %make wing
             wing = baff.Wing(aeroStations,"ShellStations",shellStations,"EtaLength",span);
         end

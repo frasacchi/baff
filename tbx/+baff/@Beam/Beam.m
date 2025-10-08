@@ -4,7 +4,7 @@ classdef Beam < baff.Element
     %   It is based on the notion of beam stations defined in the Stations property.
     %   These stations describe the variation in properties of a 1D beam line through space. Each station describes the properties of the beam at a specific normilised point (Eta) along its length.
     properties
-        Stations (1,1) baff.station.Beam = [baff.station.Beam(0),baff.station.Beam(1)];  % Beam Station properties
+        Stations (1,1) baff.station.Beam = baff.station.Beam([0,1]);  % Beam Station properties
     end
     methods(Static)
         obj = FromBaff(filepath,loc);
@@ -28,6 +28,7 @@ classdef Beam < baff.Element
                 val = val && obj1(i).Stations == obj2(i).Stations;
             end
         end
+        
         function obj = Beam(CompOpts,opts)
             %BEAM Construct an instance of the Beam Baff element class
             arguments

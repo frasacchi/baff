@@ -13,10 +13,17 @@ N = obj.Stations.N;
 points = repmat(Origin,1,N) + Rot*obj.GetPos(obj.Stations.Eta);
 
 %plot beam
-p = plot3(points(1,:),points(2,:),points(3,:),'-o');
-p.Color = 'c';
-p.MarkerFaceColor = 'c';
-p.Tag = 'Beam';
+if isa(obj.Stations,'baff.station.ShellStation.ShellStation')
+    p = plot3(points(1,:),points(2,:),points(3,:),'-','Marker','square');
+    p.Color = 'k';
+    p.MarkerFaceColor = 'k';
+    p.Tag = 'Shell';
+elseif isa(obj.Stations,'baff.station.Beam')
+    p = plot3(points(1,:),points(2,:),points(3,:),'-o');
+    p.Color = 'c';
+    p.MarkerFaceColor = 'c';
+    p.Tag = 'Beam';
+end
 
 N = obj.AeroStations.N;
 etas = obj.AeroStations.Eta;

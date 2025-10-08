@@ -1,89 +1,83 @@
-classdef ShellStation
+classdef ShellStation < baff.station.Base
     properties
-        Eta1 = 0;
-        Eta2 = 1;
-        EtaDir = [1;0;0];
-        StationDir = [0;1;0];
-        Origin = 0;
-        nodes(:,3) double = [];
+        Nodes(:,3) double = [];
         Shell(:,1) baff.station.ShellStation.Shell = baff.station.ShellStation.Shell.empty;
+        Mat = baff.Material.Stiff;
     end
+
     % methods (Static)
     %     obj = FromBaff(filepath,loc);
     %     TemplateHdf5(filepath,loc);
     % end
+
+    methods(Static)
+        function obj = Blank(N)
+            %BLANK Create default station Array of N stations
+            obj = baff.station.ShellStation.ShellStation(zeros(1,N));
+        end
+    end
+
     methods
-
-        function out = plus(obj,delta_eta)
-            if length(delta_eta) == 1
-                delta_eta = repmat(delta_eta,1,length(obj));
-            end
-            if length(obj) == 1
-                out = repmat(obj,1,length(delta_eta)-1);
-            elseif length(delta_eta) ~= length(obj)+1
-                error('length of obj must be 1 or equal to length of delta_eta')
-            else
-                out = obj;
-            end
-            for i = 1:length(delta_eta)-1
-                out(i).Eta1 = out(i).Eta1 + delta_eta(i);
-                out(i).Eta2 = out(i).Eta1 + (delta_eta(i+1)-delta_eta(i));
-            end
-
-        end
-
-        function out = minus(obj,delta_eta)
-            if length(delta_eta) == 1
-                delta_eta = repmat(delta_eta,1,length(obj));
-            end
-            if length(obj) == 1
-                out = repmat(obj, 1, length(delta_eta) - 1);
-            elseif length(delta_eta) ~= length(obj) + 1
-                error('For array operations, length of delta_eta must be one greater than length of obj.');
-            else
-                out = obj;
-            end
-            %- TODO -- Fix minus logic!
-            for i = 1:length(delta_eta) - 1
-                out(i).Eta1 = out(i).Eta1 - delta_eta(i);
-                out(i).Eta2 = out(i).Eta2 - delta_eta(i+1);
-            end
-        end
-
         function obj = ShellStation(eta,opts)
             arguments
                 eta
                 opts.EtaDir = [1;0;0]
                 opts.StationDir = [0;1;0];
-                opts.Origin = 0;
-                opts.nodes(:,3) double = [];
+                opts.Mat = baff.Material.Stiff;
+                opts.Nodes(:,3) double = [];
                 opts.Shell(:,1) baff.station.ShellStation.Shell = baff.station.ShellStation.Shell.empty;
             end
-            obj.Eta1 = eta(1);
-            obj.Eta2 = eta(2);
-            obj.EtaDir = opts.EtaDir;
-            obj.StationDir = opts.StationDir;
-            obj.Origin = opts.Origin;
+            obj = obj@baff.station.Base(eta);
+            N = obj.N;
+            % set other properties
+            obj.EtaDir = SetStationProp(opts.EtaDir,N);
+            obj.StationDir = SetStationProp(opts.StationDir,N);
+            obj.Mat = SetStationProp(opts.Mat,N);
+            % set optional properties
             obj.Shell = opts.Shell;
-            obj.nodes = opts.nodes;
+            obj.Nodes = opts.Nodes;
         end
 
-        function stations = interpolate(obj,etas)
-            old_eta = [obj.Eta1];
-            EtaDirs = interp1(old_eta,[obj.EtaDir]',etas,"previous")';
-            StationDirs = interp1(old_eta,[obj.StationDir]',etas,"previous")';
-
-            stations = baff.station.ShellStation.empty;
-            for i = 1:length(etas)-1
-                stations(i).Eta1 = etas(i);
-                stations(i).Eta2 = etas(i+1);
-                stations(i).EtaDir = EtaDirs(:,i);
-                stations(i).StationDir = StationDirs(:,i);
-
-                %- TODO -- implement node + shell interp
-                stations(i).Shell = baff.station.Shell.empty;
-                stations(i).nodes = [];
+        function obj = Duplicate(obj,EtaArray)
+            %DUPLICATE make copies of a scaler Station
+            if obj.N~=1
+                error('Length of station obj must be 1')
             end
+            obj = baff.station.ShellStation(EtaArray,EtaDir=obj.EtaDir,StationDir=obj.StationDir,Nodes=obj.Nodes,Shell=obj.Shell,Mat=obj.Mat);
+        end
+
+        function out = interpolate(obj,N,method,PreserveOld)
+            %INTERPOLATE interpolate stations at different etas
+            % INTERPOLATE - interpolates in one of three methods depending
+            % on "method":
+            % "eta": N is an array of etas to interpolate at
+            % "linear": N is a scalar of the number of linear distributed
+            % points to interpolate at
+            %
+            % the argument PereserveOld will ensure the original Etas are
+            % in the output if set to true (default false)
+            arguments
+                obj
+                N
+                method string {mustBeMember(method,["eta","linear"])} = "eta";
+                PreserveOld logical = false;
+            end
+
+            % calc list of etas
+            [etas,idx_low,idx_high,alpha] = obj.InterpolateEtas(N,method,PreserveOld);
+
+            % Create output object
+            out = baff.station.ShellStation.ShellStation(etas);
+
+            % Manual linear interpolation for scalar properties
+            %- TODO -- implement node + shell interp
+            %stations(i).Shell = baff.station.Shell.empty;
+            %stations(i).Nodes = [];
+
+            % Direction vectors and materials use "previous" method (no interpolation)
+            out.EtaDir = obj.EtaDir(:, idx_low);
+            out.StationDir = obj.StationDir(:, idx_low);
+            out.Mat = obj.Mat(idx_low);
         end
 
         function p = draw(obj,opts)
@@ -92,11 +86,40 @@ classdef ShellStation
                 opts.Origin (3,1) double = [0,0,0];
                 opts.A (3,3) double = eye(3);
             end
-            p = plot3(opts.Origin(1,:),opts.Origin(2,:),opts.Origin(3,:),'o');
-            p.MarkerFaceColor = 'c';
-            p.Color = 'c';
-            p.Tag = 'Beam';
+            p = plot3(opts.Origin(1,:),opts.Origin(2,:),opts.Origin(3,:),'square');
+            p.MarkerFaceColor = 'k';
+            p.Color = 'k';
+            p.Tag = 'Shell';
+        end
+    end
+
+    % operator overloading
+    methods
+        function obj = horzcat(varargin)
+            Ni = 0;
+            for i = 1:numel(varargin)
+                Ni = Ni + varargin{i}.N;
+            end
+            obj = baff.station.ShellStation.ShellStation.Blank(Ni);
+            idx = 1;
+            for i = 1:numel(varargin)
+                ii = idx:(idx+varargin{i}.N-1);
+                idx = ii(end)+1;
+                obj.Eta(ii) = varargin{i}.Eta;
+                obj.EtaDir(:,ii) = varargin{i}.EtaDir;
+                obj.StationDir(:,ii) = varargin{i}.StationDir;
+                obj.Mat(ii) = varargin{i}.Mat;
+                obj.Nodes = [obj.Nodes; varargin{i}.Nodes];
+                obj.Shell = [obj.Shell; varargin{i}.Shell];
+            end
+        end
+
+        function val = eq(obj1,obj2)
+            val = isa(obj2,'baff.station.ShellStation') && obj1.N == obj2.N && ...
+                all(obj1.Eta == obj2.Eta) && all(obj1.EtaDir == obj2.EtaDir,"all") ...
+                && all(obj1.StationDir == obj2.StationDir,"all") ...
+                && all(obj1.Nodes == obj2.Nodes, "all") ...
+                && all(obj1.Shell == obj2.Shell);
         end
     end
 end
-
