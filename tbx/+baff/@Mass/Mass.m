@@ -98,6 +98,22 @@ classdef Mass < baff.Point
             p.MarkerFaceColor = 'b';
             p.Color = 'b';
             p.Tag = 'Mass';
+            % if norm(obj.Force)>0
+            %     v = Rot*obj.Force(:).*obj.VectorPltScaling;
+            %     o = [Origin(1,1);Origin(2,1);Origin(3,1)];
+            %     vo = [o,o+v];
+            %     p = plot3(vo(1,:),vo(2,:),vo(3,:),'-r','LineWidth',1.5);
+            %     p.Tag = 'Force';
+            % end
+            if norm(obj.Force) > 0
+                v = Rot * obj.Force(:) .* obj.VectorPltScaling;
+                ox = Origin(1,1);
+                oy = Origin(2,1);
+                oz = Origin(3,1);
+                p = quiver3(ox, oy, oz, v(1), v(2), v(3), 0, '-r', 'LineWidth', 1.5);
+                p.Tag = 'Force';
+                p.MaxHeadSize = 0.5; 
+            end
             %plot children
             optsCell = namedargs2cell(opts);
             plt_obj = draw@baff.Element(obj,optsCell{:});

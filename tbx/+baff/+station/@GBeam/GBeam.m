@@ -1,4 +1,4 @@
-classdef Beam < baff.station.Base
+classdef GBeam < baff.station.Base
     %BEAMSTATION Creates a beam station
     %   x direction along beam
 
@@ -8,7 +8,6 @@ classdef Beam < baff.station.Base
         J (1,:) double = 1         % Torsional Constant
         tau (3,3,:) double = eye(3); % elongation tensor
         Mat = baff.Material.Stiff;
-        DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
     end
     methods
         function set.A(obj,val)
@@ -58,7 +57,7 @@ classdef Beam < baff.station.Base
     end
     % constructor
     methods
-        function obj = Beam(eta,opts)
+        function obj = GBeam(eta,opts)
             %BEAM - Constructor for a Beam Station
             arguments
                 eta
@@ -69,7 +68,7 @@ classdef Beam < baff.station.Base
                 opts.I = eye(3);
                 opts.J = 1;
                 opts.tau = eye(3);
-                opts.DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
+                opts.K45 = 0;
             end
             obj = obj@baff.station.Base(eta);
             N = obj.N;
@@ -81,7 +80,7 @@ classdef Beam < baff.station.Base
             obj.J = SetStationProp(opts.J,N);
             obj.tau = SetStationMatrixProp(opts.tau,N);
             obj.Mat = SetStationProp(opts.Mat,N);
-            obj.DMIG = SetStructDMIG(opts.DMIG,N);
+            obj.K45 = SetStationProp(opts.K45,N);
         end
     end
     methods(Static)
@@ -110,6 +109,7 @@ classdef Beam < baff.station.Base
                 obj.Mat(ii) = varargin{i}.Mat;
                 obj.I(:,:,ii) = varargin{i}.I;
                 obj.tau(:,:,ii) = varargin{i}.tau;
+                obj.K45(ii) = varargin{i}.K45;
             end
         end
         function val = eq(obj1,obj2)
@@ -117,7 +117,8 @@ classdef Beam < baff.station.Base
                 all(obj1.Eta == obj2.Eta) && all(obj1.EtaDir == obj2.EtaDir,"all") ...
                 && all(obj1.StationDir == obj2.StationDir,"all") && all(obj1.A == obj2.A) ...
                 && all(obj1.J == obj2.J) && all(obj1.I == obj2.I,"all") ...
-                && all(obj1.tau == obj2.tau,"all");
+                && all(obj1.tau == obj2.tau,"all")...
+                && all(obj1.K45 == obj2.K45);
         end
         function out = GetIndex(obj,i)
             if any(i>obj.N | i<1)
@@ -130,6 +131,7 @@ classdef Beam < baff.station.Base
             out.I = obj.I(:,:,i);
             out.J = obj.J(i);
             out.tau = obj.tau(:,:,i);
+            out.K45 = obj.K45(i);
         end
         function obj = SetIndex(obj,i,val)
             if any(i>obj.N | i<1)
@@ -144,6 +146,7 @@ classdef Beam < baff.station.Base
             obj.I(:,:,i) = val.I;
             obj.tau(:,:,i) = val.tau;
             obj.Mat(i) = val.Mat;
+            obj.K45(i) = val.K45;
         end
     end
     % extra Methods
@@ -234,6 +237,7 @@ classdef Beam < baff.station.Base
             beta = 1-alpha;
             out.A = obj.A(idx_low) .* beta + obj.A(idx_high) .* alpha;
             out.J = obj.J(idx_low) .* beta + obj.J(idx_high) .* alpha;
+            out.K45 = obj.K45(idx_low) .* beta + obj.K45(idx_high) .* alpha;
             
             beta3 = permute(beta,[1,3,2]);
             alpha3 = permute(alpha,[1,3,2]);
@@ -244,16 +248,6 @@ classdef Beam < baff.station.Base
             out.EtaDir = obj.EtaDir(:, idx_low);
             out.StationDir = obj.StationDir(:, idx_low);
             out.Mat = obj.Mat(idx_low);
-
-            % DMIG interpolation
-            if~isempty(obj.DMIG)
-            NCouplings = size(obj.DMIG, 1);  
-            for c=1:NCouplings
-                DMIG(c) = obj.DMIG(c, 1);
-            end
-            DMIG  = rmfield(DMIG, {'idx', 'A'});
-            out.DMIG = SetStructDMIG(DMIG,length(N));
-            end
         end
     end
     methods(Static)
@@ -263,8 +257,6 @@ classdef Beam < baff.station.Base
                 height
                 width
                 opts.Mat = baff.Material.Stiff;
-                opts.EtaDir = [1;0;0];
-                opts.DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
             end
             Iyy = height^3*width/12;
             Izz = width^3*height/12;
@@ -278,20 +270,19 @@ classdef Beam < baff.station.Base
             end
             J = a*b^3*(1/3-0.2085*(b/a)*(1-(b^4)/(12*a^4)));
             I = diag([Ixx,Iyy,Izz]);
-            obj = baff.station.Beam(eta, I=I, A=height*width, J=J, Mat=opts.Mat,EtaDir=opts.EtaDir, DMIG=opts.DMIG);
+            obj = baff.station.Beam(eta, I=I, A=height*width, J=J, Mat=opts.Mat);
         end
         function obj = Rod(eta,diameter,opts)
             arguments
                 eta
                 diameter
                 opts.Mat = baff.Material.Stiff;
-                opts.DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
             end
             r = diameter/2;
             A = pi*r^2;
             I = pi.*r^4.*diag([0.25,0.25,0.5]);
             J = pi*diameter^4/32;
-            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat, DMIG=opts.DMIG);
+            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat);
         end
         function obj = Annulus(eta,outer_diameter,inner_diameter,opts)
             arguments
@@ -299,14 +290,13 @@ classdef Beam < baff.station.Base
                 outer_diameter
                 inner_diameter
                 opts.Mat = baff.Material.Stiff;
-                opts.DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
             end
             r_outer = outer_diameter/2;
             r_inner = inner_diameter/2;
             A = pi*(r_outer^2 - r_inner^2);
             I = pi.*(r_outer^4 - r_inner^4).*diag([0.25,0.25,0.5]);
             J = pi/2*(r_outer^4 - r_inner^4);
-            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat, DMIG=opts.DMIG);
+            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat);
         end
         function obj = HollowRect(eta,height,width,thickness,opts)
             arguments
@@ -315,7 +305,6 @@ classdef Beam < baff.station.Base
                 width
                 thickness
                 opts.Mat = baff.Material.Stiff;
-                opts.DMIG = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{},'A',{},'B',{},'idx0',{},'idx',{}); % Direct Matrix Input - K2GG,M2GG,B2GG
             end
             if thickness*2>=min(height,width)
                 error('Thickness is too large for given dimensions')
@@ -334,7 +323,7 @@ classdef Beam < baff.station.Base
             t = thickness;
             J = 2*t^2*(b-t)^2*(a-t)^2/(a*t+b*t-2*t^2);
             I = diag([Ixx,Iyy,Izz]);
-            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat, DMIG=opts.DMIG);
+            obj = baff.station.Beam(eta, I=I, A=A, J=J, Mat=opts.Mat);
         end
     end
 end

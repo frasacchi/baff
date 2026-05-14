@@ -6,6 +6,7 @@ classdef Wing < baff.Element
         Stations (1,1)
         AeroStations (1,:) baff.station.Aero; % Aero stations for the wing -- should be a (1,1)
         ControlSurfaces (1,:) baff.ControlSurface; % Control surfaces for the wing
+        ConstraintDoFs = []; % Constraint DoFs to suppress in-plane modes;
     end
 
     properties(Dependent)
@@ -112,6 +113,7 @@ classdef Wing < baff.Element
                 aeroStations
                 opts.BeamStations = baff.station.Beam([0,1]);
                 opts.ShellStations = [];%baff.station.ShellStation.ShellStation([0,1]);
+                opts.ConstraintDoFs = [];
                 opts.EtaLength = 1;
                 CompOpts.eta = 0
                 CompOpts.Offset
@@ -130,15 +132,17 @@ classdef Wing < baff.Element
             end
             obj.AeroStations = aeroStations;
             obj.EtaLength = opts.EtaLength;
+            obj.ConstraintDoFs = opts.ConstraintDoFs;
 
         end
         function X = GetWingPos(obj,eta,pChord)
             %GetWingPos returns the position of the wing at a given eta and pChord
             X = obj.GetPos(eta) + obj.AeroStations.GetPos(eta,pChord);
         end
-        function X = GetPos(obj,eta)
+        function [X,Dir] = GetPos(obj,eta)
             %GetPos returns the position of the wing at a given eta along the beam line
-            X = obj.Stations.GetPos(eta)*obj.EtaLength;
+            [X0,Dir] = obj.Stations.GetPos(eta);
+            X = X0*obj.EtaLength;
         end
         function Area = WettedArea(obj)
             %WettedArea returns the wetted area of the wing
@@ -222,6 +226,8 @@ classdef Wing < baff.Element
                 opts.etaAeroMax = 1
                 opts.etaBeamMax = 1
                 opts.LiftCurveSlope = 2*pi;
+                opts.ConstraintDoFs = [];
+                opts.DMI = struct('Name',{},'DOFs',{},'A0',{},'B0',{},'IFO',{},'NCOL',{}); % Direct Matrix Input
             end
             N = length(span);
             etas = [0,span/sum(span)];
@@ -241,15 +247,11 @@ classdef Wing < baff.Element
             vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
 
             % create root stations
-            for i=1:N+1
-            stations(i) = baff.station.Beam.Bar(etas(i),barHeight,barWidth,Mat=Material,EtaDir=vecs);
-            aeroStations(i) = baff.station.Aero(etas(i),Chord,BeamLoc,LiftCurveSlope=opts.LiftCurveSlope);
-            end
+            aeroStations = baff.station.Aero(etas,Chord,BeamLoc,LiftCurveSlope=opts.LiftCurveSlope);
+            stations = baff.station.Beam.Bar(etas,barHeight,barWidth,Mat=Material,EtaDir=vecs,DMI=opts.DMI);
 
             %gen wing
-            obj = baff.Wing(aeroStations);
-            obj.EtaLength = span;
-            obj.Stations = stations;
+            obj = baff.Wing(aeroStations,"BeamStations",stations,"EtaLength",span,"ConstraintDoFs",opts.ConstraintDoFs);
         end
 
 
@@ -350,6 +352,7 @@ classdef Wing < baff.Element
             % make beam stations
             shellStations = baff.station.ShellStation.ShellStation(etas,Mat=Material);
             % shellStations = station + etas;
+
             %get le points
             le = zeros(3,N);
             for i = 1:N-1
@@ -358,6 +361,7 @@ classdef Wing < baff.Element
                     tand(opts.Dihedral(i))*delta(i)*span];
                 le(:,i+1) = le(:,i) + vec;
             end
+
             %get te points
             te = zeros(3,N);
             te(:,1) = [0;-RootChord;0];
@@ -367,12 +371,14 @@ classdef Wing < baff.Element
                     tand(opts.Dihedral(i))*delta(i)*span];
                 te(:,i+1) = te(:,i) + vec;
             end
+
             % get spar loc
             locs = le + (te-le).*BeamLoc;
             % vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
             % for i=1:N-1
             %     shellStations(i).EtaDir = vecs(:,i);
             % end
+
             shellStations.EtaDir(:,1:end-1) = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
 
             % get chords

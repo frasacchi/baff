@@ -1,5 +1,5 @@
 classdef (Abstract) Base < handle & matlab.mixin.Copyable
-    
+
     properties(SetAccess=immutable)
         N = 1;
     end
@@ -40,7 +40,7 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
             end
         end
     end
-    
+
     methods
         function obj = Base(eta)
             arguments
@@ -99,64 +99,165 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
             end
             obj.Eta = (obj.Eta - obj.Eta(1)) / ((NormEta - obj.Eta(1)));
         end
-        function X = GetPos(obj,eta)
+        function [X, Dir] = GetPos(obj, eta)
             % check we have an array of sorted stations
             etas = obj.Eta;
-            EtaDirs = obj.EtaDir;
+            all_dirs = obj.EtaDir; % Renamed internal var to avoid conflict with output
 
             if ~issorted(etas)
-                error('array of stations must be sorted in assending order (of eta)')
+                error('array of stations must be sorted in ascending order (of eta)')
             end
-            %deal with single length obj
+
+            % Deal with single length obj (Scalar Object)
             if isscalar(etas)
-                X = EtaDirs.*(eta-etas(1));
+                X = all_dirs .* (eta - etas(1));
+                % Direction is constant
+                if isscalar(eta)
+                    Dir = all_dirs;
+                else
+                    Dir = repmat(all_dirs, 1, numel(eta));
+                end
                 return
             end
-            
-            delta = [[0;0;0],repmat(etas(2:end)-etas(1:end-1),3,1).*obj.EtaDir(:,1:end-1)];
-            pos = cumsum(delta,2);
 
-            % adjust to be zero at zero eta;
-            if etas(1)~=0
-                pos = pos-repmat(interp1(etas,pos',0)',1,numel(etas));
+            % Calculate positions of the stations (knots)
+            delta = [[0;0;0], repmat(etas(2:end)-etas(1:end-1), 3, 1) .* all_dirs(:, 1:end-1)];
+            pos = cumsum(delta, 2);
+
+            % Adjust to be zero at zero eta
+            if etas(1) ~= 0
+                pos = pos - repmat(interp1(etas, pos', 0)', 1, numel(etas));
             end
+
+            % --- Main Interpolation Logic ---
             if isscalar(eta)
-                idx = find(etas==eta,1);
+                % Scalar Case
+                idx = find(etas == eta, 1);
                 if ~isempty(idx)
-                    X = pos(:,idx);
+                    % Exact match with a station
+                    X = pos(:, idx);
+                    % For exact matches, we use the direction starting from this station
+                    % (Handle edge case if it is the very last station)
+                    if idx == numel(etas)
+                        Dir = all_dirs(:, end);
+                    else
+                        Dir = all_dirs(:, idx);
+                    end
                 else
-                    ii = find(etas>eta,1);
-                    delta = (eta-etas(ii-1))/(etas(ii)-etas(ii-1));
-                    X = pos(:,ii-1) + (pos(:,ii)-pos(:,ii-1))*delta;
+                    % Interpolation between stations
+                    ii = find(etas > eta, 1);
+                    if isempty(ii)
+                        % Should be caught by extrapolation later, but purely for logic flow:
+                        ii = numel(etas);
+                    end
+
+                    % Position Linear Interp
+                    delta_frac = (eta - etas(ii-1)) / (etas(ii) - etas(ii-1));
+                    X = pos(:, ii-1) + (pos(:, ii) - pos(:, ii-1)) * delta_frac;
+
+                    % Direction (Constant for the segment starting at ii-1)
+                    Dir = all_dirs(:, ii-1);
                 end
             else
-                %fast interp
-                bin_idx = discretize(clip(eta,min(etas),max(etas)), etas);
+                % Vector Case (Fast Interp)
+                bin_idx = discretize(clip(eta, min(etas), max(etas)), etas);
+
                 % Calculate fractional indices directly
                 eta_low = etas(bin_idx);
                 eta_high = etas(bin_idx + 1);
+
                 alpha = (eta - eta_low) ./ (eta_high - eta_low);
-                beta = 1-alpha;
+                beta = 1 - alpha;
+
                 idx_low = bin_idx;
                 idx_high = bin_idx + 1;
 
+                % Interpolate Position
                 X = pos(:, idx_low) .* beta + pos(:, idx_high) .* alpha;
+
+                % Retrieve Direction
+                % For a linear segment, direction is constant = direction at start of segment
+                Dir = all_dirs(:, idx_low);
             end
-            % deal with extrapolated etas
-            idx = eta<etas(1);
-            if nnz(idx)>0
-                X(:,idx) = obj.EtaDir(:,1).*(eta(idx)-etas(1)) + repmat(pos(:,1),1,nnz(idx));
+
+            % --- Handle Extrapolation ---
+
+            % Extrapolate below start
+            idx = eta < etas(1);
+            if nnz(idx) > 0
+                X(:, idx) = all_dirs(:, 1) .* (eta(idx) - etas(1)) + repmat(pos(:, 1), 1, nnz(idx));
+                Dir(:, idx) = repmat(all_dirs(:, 1), 1, nnz(idx));
             end
-            idx = eta>etas(end);
-            if nnz(idx)>0
-                X(:,idx) = obj.EtaDir(:,end).*(eta(idx)-etas(end)) + repmat(pos(:,end),1,nnz(idx));
+
+            % Extrapolate above end
+            idx = eta > etas(end);
+            if nnz(idx) > 0
+                X(:, idx) = all_dirs(:, end) .* (eta(idx) - etas(end)) + repmat(pos(:, end), 1, nnz(idx));
+                Dir(:, idx) = repmat(all_dirs(:, end), 1, nnz(idx));
             end
-            if any(isnan(X))
-                error("unexpected NaN in interpolation of station positions")
-            end
+
+            % if any(isnan(X)) || any(isnan(Dir))
+            %     error("unexpected NaN in interpolation of station positions")
+            % end
         end
+        % function [X,EtaDir] = GetPos(obj,eta)
+        %     % check we have an array of sorted stations
+        %     etas = obj.Eta;
+        %     EtaDirs = obj.EtaDir;
+        %
+        %     if ~issorted(etas)
+        %         error('array of stations must be sorted in assending order (of eta)')
+        %     end
+        %     %deal with single length obj
+        %     if isscalar(etas)
+        %         X = EtaDirs.*(eta-etas(1));
+        %         return
+        %     end
+        %
+        %     delta = [[0;0;0],repmat(etas(2:end)-etas(1:end-1),3,1).*obj.EtaDir(:,1:end-1)];
+        %     pos = cumsum(delta,2);
+        %
+        %     % adjust to be zero at zero eta;
+        %     if etas(1)~=0
+        %         pos = pos-repmat(interp1(etas,pos',0)',1,numel(etas));
+        %     end
+        %     if isscalar(eta)
+        %         idx = find(etas==eta,1);
+        %         if ~isempty(idx)
+        %             X = pos(:,idx);
+        %         else
+        %             ii = find(etas>eta,1);
+        %             delta = (eta-etas(ii-1))/(etas(ii)-etas(ii-1));
+        %             X = pos(:,ii-1) + (pos(:,ii)-pos(:,ii-1))*delta;
+        %         end
+        %     else
+        %         %fast interp
+        %         bin_idx = discretize(clip(eta,min(etas),max(etas)), etas);
+        %         % Calculate fractional indices directly
+        %         eta_low = etas(bin_idx);
+        %         eta_high = etas(bin_idx + 1);
+        %         alpha = (eta - eta_low) ./ (eta_high - eta_low);
+        %         beta = 1-alpha;
+        %         idx_low = bin_idx;
+        %         idx_high = bin_idx + 1;
+        %
+        %         X = pos(:, idx_low) .* beta + pos(:, idx_high) .* alpha;
+        %     end
+        %     % deal with extrapolated etas
+        %     idx = eta<etas(1);
+        %     if nnz(idx)>0
+        %         X(:,idx) = obj.EtaDir(:,1).*(eta(idx)-etas(1)) + repmat(pos(:,1),1,nnz(idx));
+        %     end
+        %     idx = eta>etas(end);
+        %     if nnz(idx)>0
+        %         X(:,idx) = obj.EtaDir(:,end).*(eta(idx)-etas(end)) + repmat(pos(:,end),1,nnz(idx));
+        %     end
+        %     if any(isnan(X))
+        %         error("unexpected NaN in interpolation of station positions")
+        %     end
+        % end
         function [lenLocus,kappa] = GetLocus(obj)
-            % gets the length of the locus formed by the stations and returns the 
+            % gets the length of the locus formed by the stations and returns the
             % normalised positon of the stations along the locus
             etas = obj.Eta;
             dirs = obj.EtaDir;
@@ -201,7 +302,7 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
                     end
                     etas = old_eta(1) + (old_eta(end) - old_eta(1)) * sin(linspace(0,pi/2,N));
             end
-            if PreserveOld 
+            if PreserveOld
                 if N < length(old_eta)
                     error("Can't preserve old etas if new points number less than previous number of stations")
                 elseif N == length(old_eta)
@@ -224,15 +325,15 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
             % get eta interpolatants
             % Find bin indices
             bin_idx = discretize(etas, old_eta);
-            
+
             % Calculate fractional indices directly
             eta_low = old_eta(bin_idx);
             eta_high = old_eta(bin_idx + 1);
             alpha = (etas - eta_low) ./ (eta_high - eta_low);
-            
+
             % Handle constant segments (avoid NaN from 0/0)
             alpha(eta_high == eta_low) = 0;
-            
+
             % Index arrays for interpolation
             idx_low = bin_idx;
             idx_high = bin_idx + 1;

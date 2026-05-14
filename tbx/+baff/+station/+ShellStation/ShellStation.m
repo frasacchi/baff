@@ -2,6 +2,10 @@ classdef ShellStation < baff.station.Base
     properties
         Nodes(:,3) double = [];
         Shell(:,1) baff.station.ShellStation.Shell = baff.station.ShellStation.Shell.empty;
+        SecondaryEta(1,:) double = 0;
+        SecondaryNodes(:,4) = [];
+        ConstrainedEta(1,:) = [];
+        ConstrainedNodes(:,:) = [];
         Mat = baff.Material.Stiff;
     end
 
@@ -26,6 +30,10 @@ classdef ShellStation < baff.station.Base
                 opts.Mat = baff.Material.Stiff;
                 opts.Nodes(:,3) double = [];
                 opts.Shell(:,1) baff.station.ShellStation.Shell = baff.station.ShellStation.Shell.empty;
+                opts.SecondaryEta(1,:) double = 0;
+                opts.SecondaryNodes(:,4) = [];
+                opts.ConstrainedEta(1,:) = [];
+                opts.ConstrainedNodes(:,:) = [];
             end
             obj = obj@baff.station.Base(eta);
             N = obj.N;
@@ -36,6 +44,10 @@ classdef ShellStation < baff.station.Base
             % set optional properties
             obj.Shell = opts.Shell;
             obj.Nodes = opts.Nodes;
+            obj.SecondaryEta = opts.SecondaryEta;
+            obj.SecondaryNodes = opts.SecondaryNodes;
+            obj.ConstrainedEta = opts.ConstrainedEta;
+            obj.ConstrainedNodes = opts.ConstrainedNodes;
         end
 
         function obj = Duplicate(obj,EtaArray)
@@ -43,7 +55,7 @@ classdef ShellStation < baff.station.Base
             if obj.N~=1
                 error('Length of station obj must be 1')
             end
-            obj = baff.station.ShellStation(EtaArray,EtaDir=obj.EtaDir,StationDir=obj.StationDir,Nodes=obj.Nodes,Shell=obj.Shell,Mat=obj.Mat);
+            obj = baff.station.ShellStation(EtaArray,EtaDir=obj.EtaDir,StationDir=obj.StationDir,Nodes=obj.Nodes,Shell=obj.Shell,Mat=obj.Mat,SecondaryEta=obj.SecondaryEta,SecondaryNodes=obj.SecondaryNodes,ConstrainedNodes=obj.ConstrainedNodes);
         end
 
         function out = interpolate(obj,N,method,PreserveOld)
@@ -111,6 +123,10 @@ classdef ShellStation < baff.station.Base
                 obj.Mat(ii) = varargin{i}.Mat;
                 obj.Nodes = [obj.Nodes; varargin{i}.Nodes];
                 obj.Shell = [obj.Shell; varargin{i}.Shell];
+                obj.SecondaryEta = [obj.SecondaryEta, varargin{i}.SecondaryEta];
+                obj.SecondaryNodes = [obj.SecondaryNodes; varargin{i}.SecondaryNodes];
+                obj.ConstrainedEta = [obj.ConstrainedEta, varargin{i}.ConstrainedEta];
+                obj.ConstrainedNodes = [obj.ConstrainedNodes, varargin{i}.ConstrainedNodes];
             end
         end
 
