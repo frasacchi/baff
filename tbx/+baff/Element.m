@@ -141,7 +141,7 @@ classdef Element < matlab.mixin.Heterogeneous & handle
                     if any(isnan([tmpX;tmpM]))
                         error('NaN found')
                     end
-                    tmpX = tmpObj.A' * tmpX;
+                    tmpX = tmpObj.A * tmpX;
                     tmpX = tmpX + repmat(childPos(:,i),1,length(tmpM));
                     mass = mass + sum(tmpM);
                     CoM = CoM + sum(tmpX.*repmat(tmpM,3,1),2);
@@ -212,7 +212,7 @@ classdef Element < matlab.mixin.Heterogeneous & handle
                 Eta
                 Offset = [0;0;0];
             end
-            X =  obj.Offset + obj.A' * (obj.GetPos(Eta) + Offset);
+            X =  obj.Offset + obj.A * (obj.GetPos(Eta) + Offset);
             if ~isempty(obj.Parent)
                 X = obj.Parent.GetGlobalPos(obj.Eta,X);
             end
@@ -222,7 +222,7 @@ classdef Element < matlab.mixin.Heterogeneous & handle
             %
             %Returns:
             %   A (double): Global rotation matrix
-            A = obj.A';
+            A = obj.A;
             if ~isempty(obj.Parent)
                 A = obj.Parent.GetGlobalA() * A;
             end

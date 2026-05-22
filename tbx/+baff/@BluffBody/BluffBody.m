@@ -85,7 +85,14 @@ classdef BluffBody < baff.Element
                 obj
                 etaLims = [0,1]
             end                
-            Vol = obj.Stations.NormVolume(etaLims)*obj.EtaLength;
+            if isscalar(obj)
+                Vol = obj.Stations.NormVolume(etaLims)*obj.EtaLength;
+            else
+                Vol = zeros(size(obj));
+                for i = 1:length(obj)
+                    Vol(i) = obj(i).Stations.NormVolume(etaLims)*obj(i).EtaLength;
+                end
+            end
         end
     end
     methods(Static)

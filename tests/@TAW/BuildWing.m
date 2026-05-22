@@ -71,7 +71,7 @@ tr = [obj.TCR_root,interp1(etas_centre2tip([2,end]),[obj.TCR_root,tc_tip],etas_c
 wingMat = baff.Material.Aluminium;
 wingMat.rho = wingMat.rho*obj.WingDensityFactor;
 Connector = baff.Wing.FromLETESweep(seg_lengths(1),cs(1),[0 1],LE_sweeps(1),TE_sweeps(1),0.4,wingMat,ThicknessRatio=tr([1,2]),Dihedral=0);
-Connector.A = baff.util.rotz(90)*baff.util.rotx(180);
+Connector.A = dcrg.rotzd(90)*dcrg.rotxd(180);
 Connector.Eta = obj.WingEta;
 Connector.Offset = [0;0;-D_c/4];
 Connector.Name = string(['Wing_Connector',Tag]);
@@ -133,13 +133,13 @@ if HasFoldingWingtip
     %% create hinge
     hinge = baff.Hinge();
     if isRight
-        hinge.HingeVector = baff.util.rotz(-obj.FlareAngle)*[0;-1;0];
+        hinge.HingeVector = dcrg.rotzd(-obj.FlareAngle)*[0;-1;0];
         hinge.Rotation = -0;
-        hinge.A = ads.util.roty(obj.Dihedral(end));
+        hinge.A = dcrg.rotyd(obj.Dihedral(end));
     else
-        hinge.HingeVector = baff.util.rotz(obj.FlareAngle)*[0;-1;0];
+        hinge.HingeVector = dcrg.rotzd(obj.FlareAngle)*[0;-1;0];
         hinge.Rotation = 0;
-        hinge.A = ads.util.roty(-obj.Dihedral(end));
+        hinge.A = dcrg.rotyd(-obj.Dihedral(end));
     end
     hinge.isLocked = 0;
     hinge.Eta = 1;
@@ -182,10 +182,10 @@ if HasFoldingWingtip
 
     %convert to draggable item
     if ~isRight
-        FFWT.A = ads.util.roty(obj.Dihedral(end));
+        FFWT.A = dcrg.rotyd(obj.Dihedral(end));
         FFWT.Stations.EtaDir(1,:) = -FFWT.Stations.EtaDir(1,:);
     else
-        FFWT.A = ads.util.roty(-obj.Dihedral(end));
+        FFWT.A = dcrg.rotyd(-obj.Dihedral(end));
     end
     hinge.add(FFWT);
 else
@@ -217,7 +217,7 @@ if obj.WingletHeight>0
     te_sweep = sign(c_bar)*atand(abs(c_bar)/h);
     Winglet = baff.Wing.FromLETESweep(h,cr,[0 1],LE_sweep,te_sweep,0.4,...
         baff.Material.Stiff,"ThicknessRatio",[1 1]*tr(end));
-    Winglet.A = baff.util.roty(90);
+    Winglet.A = dcrg.rotyd(90);
     Winglet.Eta = 1;
     Winglet.Name = string(['winglet',Tag]);
     Winglet.Meta.ads.GenerateAeroPanels = false;
@@ -244,7 +244,7 @@ engine_mat = baff.Material.Stiff;
 eta = [0 0.6 1];
 radius = [1 1 1/1.4]*obj.Engine.Diameter/2;
 engine = baff.BluffBody.FromEta(obj.Engine.Length,eta,radius,"Material",engine_mat,"NStations",4);
-engine.A = baff.util.rotz(-90);
+engine.A = dcrg.rotzd(-90);
 engine.Eta = (opts.EnginePos-D_join/2)/(Wing.EtaLength);
 engine.Offset = [0;obj.Engine.Length*1.4;obj.Engine.Diameter/2+0.1];
 engine.Name = string(['engine',Tag]);

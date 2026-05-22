@@ -79,13 +79,13 @@ classdef Wing < baff.Element
                 [mac,eta] = obj.AeroStations.GetMGC;
                 X = obj.GetGlobalPos(eta,obj.AeroStations.GetPos(eta,pChord));
             else
-                As = [obj.PlanformArea];
-                idx = find(cumsum(As)>=sum(As)/2,1);
-                As = [0,As];
-                target_A = sum(As)/2 - As(idx);
-                target = target_A/As(idx+1);
-                [mac,eta] = obj(idx).AeroStations.GetMGC(target);
-                X = obj(idx).GetGlobalPos(eta,obj(idx).AeroStations.GetPos(eta,pChord));
+                As = [0,[obj.PlanformArea]];
+                cAs = cumsum(As);
+                idx = find(cAs>=sum(As)/2,1);
+                target_A = sum(As)/2 - cAs(idx-1);
+                target = target_A/As(idx);
+                [mac,eta] = obj(idx-1).AeroStations.GetMGC(target);
+                X = obj(idx-1).GetGlobalPos(eta,obj(idx-1).AeroStations.GetPos(eta,pChord));
             end
         end
         function [mac,X] = GetMAC(obj)
@@ -145,8 +145,36 @@ classdef Wing < baff.Element
             X = X0*obj.EtaLength;
         end
         function Area = WettedArea(obj)
-            %WettedArea returns the wetted area of the wing
-            Area = zeros(size(obj));      
+            %WettedArea returns the wetted surface area of the bluff body element.
+            %Returns:
+            %   Area: wetted surface area of the bluff body element
+            if isscalar(obj)
+                Area = obj.AeroStations.GetNormWettedArea()*obj.EtaLength;            
+            else
+                Area = zeros(size(obj));
+                for i = 1:length(obj)
+                    Area(i) = obj(i).AeroStations.GetNormWettedArea()*obj(i).EtaLength;            
+                end
+            end
+        end
+        function Vol = WingVolume(obj,etaLims)
+            %Volume returns the volume of the bluff body element within specified eta limits.
+            %Args:
+            %   etaLims: eta limits for volume calculation [default: [0,1]]
+            %Returns:
+            %   Vol: volume of the bluff body element within the specified limits
+            arguments
+                obj
+                etaLims = [0,1]
+            end 
+            if isscalar(obj)
+                Vol = obj.AeroStations.GetNormVolume(etaLims)*obj.EtaLength;
+            else
+                Vol = zeros(size(obj));
+                for i = 1:length(obj)
+                    Vol(i) = obj(i).AeroStations.GetNormVolume(etaLims)*obj(i).EtaLength;
+                end
+            end
         end
         function [sweepAngles] = GetSweepAngles(obj,cEta)
             %GetSweepAngles returns the sweep angle of the wing at each aero station
@@ -163,6 +191,16 @@ classdef Wing < baff.Element
                 Z = cross(A,B);
                 X = cross(Z,A);
                 sweepAngles(i) = acosd(dot(X,B)/(norm(X)*norm(B)));
+            end
+        end
+        function val = GetElementMass(obj)
+            % For beam stations: compute mass from A*rho*L (same as baff.Beam).
+            % For shell stations: return 0 — mass comes from DistributeMass children.
+            val = zeros(1, length(obj));
+            for i = 1:length(obj)
+                if isa(obj(i).Stations, 'baff.station.Beam') || isa(obj(i).Stations, 'baff.station.SuperBeam')
+                    val(i) = sum(obj(i).Stations.GetEtaMass() .* obj(i).EtaLength);
+                end
             end
         end
     end
@@ -313,6 +351,7 @@ classdef Wing < baff.Element
             % get spar loc 
             locs = le + (te-le).*BeamLoc;
             beamStations.EtaDir(:,1:end-1) = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+            beamStations.EtaDir(:,end) = beamStations.EtaDir(:,end-1);
             % get chords
             chords = vecnorm(te-le);
             %gen aero stations
@@ -320,10 +359,12 @@ classdef Wing < baff.Element
             aeroStations.Chord = chords;
             aeroStations.ThicknessRatio = opts.ThicknessRatio;
             aeroStations.Twist = opts.Twist;
-            aeroStations.Airfoil = baff.Airfoil.NACA(0,0);
+            aeroStations.Airfoil = baff.Airfoil.NACA(0, 0, mean(opts.ThicknessRatio));
             %make wing
             wing = baff.Wing(aeroStations,BeamStations=beamStations,EtaLength=span);
         end
+<<<<<<< Updated upstream
+=======
 
         function wing = FromLETESweep_Shell(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
             arguments
@@ -380,6 +421,7 @@ classdef Wing < baff.Element
             % end
 
             shellStations.EtaDir(:,1:end-1) = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+            shellStations.EtaDir(:,end) = shellStations.EtaDir(:,end-1);
 
             % get chords
             chords = vecnorm(te-le);
@@ -393,6 +435,75 @@ classdef Wing < baff.Element
             %make wing
             wing = baff.Wing(aeroStations,"ShellStations",shellStations,"EtaLength",span);
         end
+
+        % function wing = FromLETESweep_Shell(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
+        %     arguments
+        %         span
+        %         RootChord
+        %         etas
+        %         LESweep
+        %         TESweep
+        %         BeamLoc
+        %         Material
+        %         opts.Dihedral = 0;
+        %         opts.ThicknessRatio = 0.12;
+        %         opts.Twist = 0;
+        %     end
+        %     N = length(etas);
+        %     delta = etas(2:end) - etas(1:end-1);
+        %     if isscalar(opts.Dihedral)
+        %         opts.Dihedral = opts.Dihedral*ones(1,N);
+        %     end
+        %     if isscalar(opts.Twist)
+        %         opts.Twist = opts.Twist*ones(1,N);
+        %     end
+        %     if isscalar(opts.ThicknessRatio)
+        %         opts.ThicknessRatio = opts.ThicknessRatio*ones(1,N);
+        %     end
+        %     % make beam stations
+        %     shellStations = baff.station.ShellStation.ShellStation(etas,Mat=Material);
+        %     % shellStations = station + etas;
+
+        %     %get le points
+        %     le = zeros(3,N);
+        %     for i = 1:N-1
+        %         vec = [delta(i)*span;...
+        %             -tand(LESweep(i))*delta(i)*span;...
+        %             tand(opts.Dihedral(i))*delta(i)*span];
+        %         le(:,i+1) = le(:,i) + vec;
+        %     end
+
+        %     %get te points
+        %     te = zeros(3,N);
+        %     te(:,1) = [0;-RootChord;0];
+        %     for i = 1:N-1
+        %         vec = [delta(i)*span;...
+        %             -tand(TESweep(i))*delta(i)*span;...
+        %             tand(opts.Dihedral(i))*delta(i)*span];
+        %         te(:,i+1) = te(:,i) + vec;
+        %     end
+
+        %     % get spar loc
+        %     locs = le + (te-le).*BeamLoc;
+        %     % vecs = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+        %     % for i=1:N-1
+        %     %     shellStations(i).EtaDir = vecs(:,i);
+        %     % end
+
+        %     shellStations.EtaDir(:,1:end-1) = (locs(:,2:end)-locs(:,1:end-1))./span./repmat(delta,3,1);
+
+        %     % get chords
+        %     chords = vecnorm(te-le);
+        %     %gen aero stations
+        %     aeroStations = baff.station.Aero(etas,chords(1),BeamLoc);
+        %     aeroStations.Chord = chords;
+        %     aeroStations.ThicknessRatio = opts.ThicknessRatio;
+        %     aeroStations.Twist = opts.Twist;
+        %     aeroStations.Airfoil = baff.Airfoil.NACA(0,0);
+
+        %     %make wing
+        %     wing = baff.Wing(aeroStations,"ShellStations",shellStations,"EtaLength",span);
+        % end
     end
 end
 

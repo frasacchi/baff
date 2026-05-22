@@ -29,7 +29,7 @@ for i = 1:length(obj.WingBoxParams)
             case "Prop"
                 SecMass = 0.7376*Masses.Total;
             case "Planform"
-                RefMass = ads.util.tern(~isnan(obj.RefMass),obj.RefMass,obj.MTOM);
+                RefMass = dcrg.tern(~isnan(obj.RefMass),obj.RefMass,obj.MTOM);
                 % penalty for non-ideal tapering of skin etc...
                 tmp_wing = obj.Baff.Wing(obj.WingBoxParams(i).Index(1));
                 S = tmp_wing.PlanformArea; 

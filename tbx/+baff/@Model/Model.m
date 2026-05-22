@@ -76,6 +76,7 @@ classdef Model < handle
                 obj
                 fig_handle = figure;
                 opts.Type string {mustBeMember(opts.Type,["stick","surf","mesh"])} = "stick";
+                opts.A = eye(3);
             end
             hold on
             
@@ -85,7 +86,7 @@ classdef Model < handle
             %draw the elements
             plt_obj = [];
             for i = 1:length(obj.Orphans)
-                p = obj.Orphans(i).draw(Type=opts.Type);
+                p = obj.Orphans(i).draw(Type=opts.Type,A=opts.A);
                 plt_obj = [plt_obj,p];
             end
             if isa(fig_handle,'matlab.ui.Figure')

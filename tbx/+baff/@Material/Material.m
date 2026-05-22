@@ -125,6 +125,16 @@ classdef Material
             end
             obj = m;
         end
+        function obj = Stainless4310()
+            % Static method to create a Stainless Steel 304 material
+            % E=193e9, nu=0.29, rho=7930
+            persistent m
+            if isempty(m)
+                m = baff.Material(193e9,0.3403,7930);
+                m.Name = "Stainless4310";
+            end
+            obj = m;
+        end
         function obj = Stainless316()
             % Static method to create a Stainless Steel 316 material
             % E=193e9, nu=0.3, rho=8000

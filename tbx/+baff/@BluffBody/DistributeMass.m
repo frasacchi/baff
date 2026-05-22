@@ -37,24 +37,28 @@ function obj = DistributeMass(obj, mass, Nele,opts)
     if isnan(Etas(2))
         Etas(2) = obj.Stations.Eta(end);
     end
-
-    % Calculate mass distribution based on normalized volumes at each section
-    etas = linspace(Etas(1),Etas(2),Nele+1);
-    secs = obj.Stations.interpolate(etas);
-    NormVols = secs.GetNormVolumes();
-    masses = NormVols./sum(NormVols) * mass;
-
-    % Calculate eta positions for mass placement
-    if opts.IncludeTips
-        % Place masses at equally spaced positions including tips
-        etas = linspace(Etas(1),Etas(2),Nele);
+    if Etas(1)==Etas(2)
+        Nele = 1;
+        masses = mass;
+        etas = Etas(1);
     else
-        % Place masses at section centroids (avoiding tips)
-        etas = linspace(Etas(1),Etas(2),(2*Nele)+1);
-        etas = etas(2:2:(end-1));
+        % Calculate mass distribution based on normalized volumes at each section
+        etas = linspace(Etas(1),Etas(2),Nele+1);
+        secs = obj.Stations.interpolate(etas);
+        NormVols = secs.NormVolumes();
+        masses = NormVols./sum(NormVols) * mass;
+    
+        % Calculate eta positions for mass placement
+        if opts.IncludeTips
+            % Place masses at equally spaced positions including tips
+            etas = linspace(Etas(1),Etas(2),Nele);
+        else
+            % Place masses at section centroids (avoiding tips)
+            etas = linspace(Etas(1),Etas(2),(2*Nele)+1);
+            etas = etas(2:2:(end-1));
+        end
     end
 
-    % Create the point masses and add them to the bluff body
     % Create the point masses and add them to the bluff body
     for i = 1:Nele
         % Create appropriate mass type based on options

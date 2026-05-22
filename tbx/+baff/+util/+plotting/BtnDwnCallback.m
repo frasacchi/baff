@@ -5,16 +5,16 @@ function BtnDwnCallback(src, ~)
     userData = get(gca, 'UserData');
     userData.ppos = get(0, 'PointerLocation');
     set(gca, 'UserData', userData)
-    set(gcf,'WindowButtonMotionFcn',@ads.util.plotting.BtnMotionCallback)
-    ads.util.plotting.BtnMotionCallback(src)   
+    set(gcf,'WindowButtonMotionFcn',@baff.util.plotting.BtnMotionCallback)
+    baff.util.plotting.BtnMotionCallback(src)   
     elseif strcmp(get(src, 'SelectionType'), 'extend')
     % -> the left mouse button is clicked once
     % enable the interactive rotation
     userData = get(gca, 'UserData');
     userData.ppos = get(0, 'PointerLocation');
     set(gca, 'UserData', userData)
-    set(gcf,'WindowButtonMotionFcn',@ads.util.plotting.BtnDragCallback)
-    ads.util.plotting.BtnDragCallback(src)
+    set(gcf,'WindowButtonMotionFcn',@baff.util.plotting.BtnDragCallback)
+    baff.util.plotting.BtnDragCallback(src)
     elseif strcmp(get(src, 'SelectionType'), 'open')
     % -> the left mouse button is double-clicked
     % create a datatip

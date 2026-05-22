@@ -118,12 +118,24 @@ classdef Body < baff.station.Beam
                 obj
                 etaLim = [0,1]
             end
+            Vol = sum(NormVolumes(obj,etaLim));
+        end
+        function Vol = NormVolumes(obj,etaLim)
+            arguments
+                obj
+                etaLim = [nan,nan]
+            end
             etas = obj.Eta;
             Rs = obj.Radius;
-            idx = etas>=etaLim(1) & etas<=etaLim(2);
-            Rs = [interp1(etas,Rs,etaLim(1)),Rs(idx),interp1(etas,Rs,etaLim(2))];
-            etas = [etaLim(1),etas(idx),etaLim(2)];
-            Vol = sum(1/3*(etas(2:end)-etas(1:end-1))*pi.*(Rs(1:end-1).^2+Rs(1:end-1).*Rs(2:end)+Rs(2:end).^2));
+            if ~isnan(etaLim(1))
+                idx = etas>etaLim(1) & etas<etaLim(2);
+                Rs = [interp1(etas,Rs,etaLim(1)),Rs(idx),interp1(etas,Rs,etaLim(2))];
+                etas = [etaLim(1),etas(idx),etaLim(2)];
+            end
+            A1 = Rs(2:end);
+            A2 = Rs(1:end-1);
+            z = etas(2:end)-etas(1:end-1);
+            Vol = 1/3*z*pi.*(A2.^2+A2.*A1+A1.^2);
         end
         function Area = NormWettedArea(obj)
             etas = obj.Eta;
@@ -133,6 +145,7 @@ classdef Body < baff.station.Beam
             % add area at start and end
             Area = Area + pi*Rs(1)^2 + pi*Rs(end)^2;
         end
+
         function out = interpolate(obj,N,method,PreserveOld)
             %INTERPOLATE interpolate stations at different etas
             % INTERPOLATE - interpolates in one of three methods depending
@@ -171,19 +184,6 @@ classdef Body < baff.station.Beam
             out.EtaDir = obj.EtaDir(:, idx_low);
             out.StationDir = obj.StationDir(:, idx_low);
             out.Mat = obj.Mat(idx_low);
-        end
-        function vol = GetNormVolume(obj)
-            vol = sum(obj.GetNormVolumes);
-        end
-        function vols = GetNormVolumes(obj)
-            if obj.N<2
-                vols = 0;
-                return
-            end
-            span = obj.Eta(2:end)-obj.Eta(1:end-1);
-            A1 = pi*obj.Radius(2:end).^2;
-            A2 = pi*obj.Radius(1:end-1).^2;
-            vols = 1/3*span.*(A1+A2+sqrt(A1.*A2));
         end
     end
 end

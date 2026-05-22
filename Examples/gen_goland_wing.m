@@ -33,7 +33,7 @@ wing.AeroStations.Twist = interp1(opts.EtaTwist,opts.Twist,wing.AeroStations.Eta
 % Add Root Constraint
 con = baff.Constraint("ComponentNums",123456,"eta",0,"Name","Root Connection");
 con.add(wing);
-wing.A = ads.util.rotz(90);
+wing.A = dcrg.rotzd(90);
 
 % make the model
 model = baff.Model;

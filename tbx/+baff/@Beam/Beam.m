@@ -6,6 +6,7 @@ classdef Beam < baff.Element
     properties
         Stations (1,1) baff.station.Beam = baff.station.Beam([0,1]);  % Beam Station properties
     end
+
     methods(Static)
         obj = FromBaff(filepath,loc);
         TemplateHdf5(filepath,loc);
@@ -53,7 +54,10 @@ classdef Beam < baff.Element
             %- EtaDir at stations is not a unit vector ( useful for swept wings where you want EtaLength to set the span)
             %Returns:
             %   x: length of the beam locus   
-            x = obj.Stations.GetLocus()*obj.EtaLength;
+            x = zeros(1,length(obj));
+            for i = 1:length(obj)
+                x(i) = obj(i).Stations.GetLocus()*obj(i).EtaLength;
+            end
         end
         function X = GetPos(obj,eta)
             %GetPos returns the position of the beam at a given eta.

@@ -2,7 +2,7 @@ function obj = FromBaff(filepath,loc)
 %FROMBAFF Summary of this function goes here
 %   Detailed explanation goes here
 Qty = h5readatt(filepath,[loc,'/AeroStations/'],'Qty');
-obj = baff.station.Aero.Blank(0);
+obj = baff.station.Aero.Blank(1);
 if Qty == 0    
     return;
 end
