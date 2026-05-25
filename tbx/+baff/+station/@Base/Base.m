@@ -134,17 +134,21 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
                 idx = find(etas == eta, 1);
                 if ~isempty(idx)
                     X = pos(:,idx);
+                    Dir = all_dirs(:, min(idx, size(all_dirs,2)));
                 else
                     ii = find(etas>eta,1);
                     if eta<etas(1)
                         delta = (eta-etas(1))/(etas(2)-etas(1));
                         X = pos(:,1) + (pos(:,2)-pos(:,1))*delta;
+                        Dir = all_dirs(:,1);
                     elseif eta>etas(end)
                         delta = (eta-etas(end-1))/(etas(end)-etas(end-1));
                         X = pos(:,end-1) + (pos(:,end)-pos(:,1))*delta;
+                        Dir = all_dirs(:,end);
                     else
                         delta = (eta-etas(ii-1))/(etas(ii)-etas(ii-1));
                         X = pos(:,ii-1) + (pos(:,ii)-pos(:,ii-1))*delta;
+                        Dir = all_dirs(:,ii-1);
                     end
                 end
             else
@@ -163,15 +167,18 @@ classdef (Abstract) Base < handle & matlab.mixin.Copyable
 
                 % Interpolate Position
                 X = pos(:, idx_low) .* beta + pos(:, idx_high) .* alpha;
+                Dir = all_dirs(:, bin_idx);
             end
             % deal with extrapolated etas
             idx = eta<etas(1);
             if nnz(idx)>0
                 X(:,idx) = obj.EtaDir(:,1).*(eta(idx)-etas(1)) + repmat(pos(:,1),1,nnz(idx));
+                Dir(:,idx) = repmat(all_dirs(:,1),1,nnz(idx));
             end
             idx = eta>etas(end);
             if nnz(idx)>0
                 X(:,idx) = obj.EtaDir(:,end).*(eta(idx)-etas(end)) + repmat(pos(:,end),1,nnz(idx));
+                Dir(:,idx) = repmat(all_dirs(:,end),1,nnz(idx));
             end
             if any(isnan(X),"all")
                 error("unexpected NaN in interpolation of station positions")

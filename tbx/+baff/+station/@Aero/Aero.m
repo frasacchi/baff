@@ -270,10 +270,10 @@ classdef Aero < baff.station.Base
             
             if isscalar(eta)
                 points = repmat(stDir,1,length(pChord)).*(beamLoc - pChord);
-                X = dcrg.geom.Rodrigues(perp,deg2rad(twist))*points.*chord;
+                X = baff.util.Rodrigues(perp,deg2rad(twist))*points.*chord;
             else
                 points = stDir.*(beamLoc - pChord).*chord;
-                X = pagemtimes(dcrg.geom.Rodrigues(reshape(perp,3,1,[]),reshape(deg2rad(twist),1,1,[])),reshape(points,3,1,[]));
+                X = pagemtimes(baff.util.Rodrigues(reshape(perp,3,1,[]),reshape(deg2rad(twist),1,1,[])),reshape(points,3,1,[]));
                 X = reshape(X,3,[]);
             end
         end
@@ -316,7 +316,7 @@ classdef Aero < baff.station.Base
             c_bar = GetNormArea(obj)./(obj.Eta(end) - obj.Eta(1));
         end
         function [mgc,eta_mgc] = GetMGC(obj,target)
-            %GETMGCS - get wing mean geometric chord
+            %GETMGCS - get wing mean utiletric chord
             % MGC is the chord at half wing section area.
             arguments
                 obj
@@ -336,7 +336,7 @@ classdef Aero < baff.station.Base
         end
         
         function [mgcs,thicknessRatios] = GetMGCs(obj)
-            %GETMGCS - get wing mean geometric chord between each station
+            %GETMGCS - get wing mean utiletric chord between each station
             % MGC is the chord at half wing section area.
             tr = obj.Chord(2:end)./obj.Chord(1:end-1);
             mgcs = 2/3*obj.Chord(1:end-1).*(1+tr+tr.^2)./(1+tr);

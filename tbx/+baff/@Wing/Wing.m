@@ -363,9 +363,7 @@ classdef Wing < baff.Element
             %make wing
             wing = baff.Wing(aeroStations,BeamStations=beamStations,EtaLength=span);
         end
-<<<<<<< Updated upstream
-=======
-
+        
         function wing = FromLETESweep_Shell(span,RootChord,etas,LESweep,TESweep,BeamLoc,Material,opts)
             arguments
                 span
@@ -504,6 +502,7 @@ classdef Wing < baff.Element
         %     %make wing
         %     wing = baff.Wing(aeroStations,"ShellStations",shellStations,"EtaLength",span);
         % end
+
     end
 end
 

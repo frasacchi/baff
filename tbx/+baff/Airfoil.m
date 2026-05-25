@@ -233,14 +233,14 @@ methods(Static)
         yc = m/p^2*((1-2*p)+2*p*etas-etas.^2);
         yc(etas>=p) = m/(1-p)^2*(1-2*p+2*p*etas(etas>=p)-etas(etas>=p).^2);
         ys = [yt;-yt] + repmat(yc,2,1);
-<<<<<<< Updated upstream
-=======
+% <<<<<<< Updated upstream
+% =======
         Area = trapz(etas,yt)*2;
-        % Perimeter: compute from actual tThickness for correct drag/wetted area
+        % Perimeter: compute from actual thickness for correct drag/wetted area
         yt_p = 5*tThickness*(0.2969*sqrt(etas)-0.126*etas-0.3516*etas.^2+0.2843*etas.^3-0.1015*etas.^4);
         X_p = [etas; yt_p];
         perimeter = sum(vecnorm(X_p(:,2:end)-X_p(:,1:end-1)))*2;
->>>>>>> Stashed changes
+% >>>>>>> Stashed changes
         name = sprintf('NACA%.0f%.0f',round(pCamber),round(pLocCamber));
         obj = baff.Airfoil(name,1.5,etas',ys');
     end
@@ -251,16 +251,7 @@ methods(Static)
             % ys/NormArea: t=1 (structural, unchanged from original)
             yt = 5*1*(0.2969*sqrt(etas)-0.126*etas-0.3516*etas.^2+0.2843*etas.^3-0.1015*etas.^4);
             ys = [yt;-yt];
-<<<<<<< Updated upstream
             defaultAirfoil = baff.Airfoil('NACA',1.5,etas',ys');
-=======
-            Area = trapz(etas,yt)*2;
-            % Perimeter: compute at t=0.12 for realistic wetted area (was t=1 → 3.04x too high)
-            yt_p = 5*0.12*(0.2969*sqrt(etas)-0.126*etas-0.3516*etas.^2+0.2843*etas.^3-0.1015*etas.^4);
-            X_p = [etas; yt_p];
-            perimeter = sum(vecnorm(X_p(:,2:end)-X_p(:,1:end-1)))*2;
-            defaultAirfoil = baff.Airfoil('NACA',Area,perimeter,1.5,etas',ys');
->>>>>>> Stashed changes
         end
         obj = defaultAirfoil;
     end
